@@ -1,10 +1,11 @@
-import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.deps import verify_api_key
 from app.api.routes import health, pages, posts, schedule, images
+from app.config import get_settings
 
 
 @asynccontextmanager
@@ -21,8 +22,8 @@ app = FastAPI(
 )
 
 # CORS
-cors_origins_str = os.environ.get("CORS_ORIGINS", "http://localhost:3000")
-cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
+settings = get_settings()
+cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,8 +36,8 @@ app.add_middleware(
 # Public routes (no auth)
 app.include_router(health.router, prefix="/api")
 
-# Protected routes (auth dependency added in section-03)
-app.include_router(pages.router, prefix="/api")
-app.include_router(posts.router, prefix="/api")
-app.include_router(schedule.router, prefix="/api")
-app.include_router(images.router, prefix="/api")
+# Protected routes
+app.include_router(pages.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(posts.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(schedule.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(images.router, prefix="/api", dependencies=[Depends(verify_api_key)])
