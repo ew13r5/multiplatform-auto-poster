@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.deps import verify_api_key
-from app.api.routes import health, pages, posts, schedule, images
+from app.api.routes import health, pages, posts, schedule, images, publish, analytics
 from app.api.websocket import manager
 from app.config import get_settings
 from app.exceptions import PostNotEditableError, PageNotFoundError, InvalidFileError
@@ -69,6 +69,8 @@ app.include_router(pages.router, prefix="/api", dependencies=[Depends(verify_api
 app.include_router(posts.router, prefix="/api", dependencies=[Depends(verify_api_key)])
 app.include_router(schedule.router, prefix="/api", dependencies=[Depends(verify_api_key)])
 app.include_router(images.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(publish.router, prefix="/api", dependencies=[Depends(verify_api_key)])
+app.include_router(analytics.router, prefix="/api", dependencies=[Depends(verify_api_key)])
 
 
 # WebSocket endpoint
