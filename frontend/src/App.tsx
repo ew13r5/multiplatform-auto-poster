@@ -5,11 +5,13 @@ import Queue from './pages/Queue'
 import Schedule from './pages/Schedule'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
+import { ToastProvider } from './components/shared/Toast'
 import './index.css'
 
 function App() {
   return (
     <BrowserRouter>
+      <ToastProvider>
       <AppLayout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -19,6 +21,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </AppLayout>
+      </ToastProvider>
     </BrowserRouter>
   )
 }
