@@ -26,3 +26,26 @@ celery_app.conf.update(
 )
 
 celery_app.autodiscover_tasks(["app.tasks"])
+
+# Beat schedule
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    "check-publish-slots": {
+        "task": "app.tasks.publish_task.check_publish_slots",
+        "schedule": 60.0,
+        "options": {"expires": 55},
+    },
+    "update-heartbeat": {
+        "task": "app.tasks.health_task.update_heartbeat",
+        "schedule": 60.0,
+    },
+    "check-token-health": {
+        "task": "app.tasks.health_task.check_all_tokens",
+        "schedule": crontab(hour=3, minute=0),
+    },
+    "daily-report": {
+        "task": "app.tasks.report_task.send_daily_report",
+        "schedule": crontab(hour=8, minute=0),
+    },
+}
