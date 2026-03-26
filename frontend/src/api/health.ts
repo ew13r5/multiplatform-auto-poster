@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { LogResponse } from '../types/log'
 
 export async function getHealth() {
   const { data } = await apiClient.get('/health')
@@ -7,7 +8,7 @@ export async function getHealth() {
 
 export async function getLog(params?: { page_id?: string; status?: string; limit?: number; offset?: number }) {
   const { data } = await apiClient.get('/log', { params })
-  return data
+  return data as LogResponse
 }
 
 export async function getTaskStatus(taskId: string) {
