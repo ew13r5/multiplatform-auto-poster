@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom'
+import { LayoutDashboard, ListTodo, Calendar, BarChart3, Settings } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const links = [
-  { to: '/', label: 'Dashboard', icon: '📊' },
-  { to: '/queue', label: 'Queue', icon: '📋' },
-  { to: '/schedule', label: 'Schedule', icon: '📅' },
-  { to: '/analytics', label: 'Analytics', icon: '📈' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
+const links: Array<{ to: string; label: string; icon: LucideIcon }> = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/queue', label: 'Queue', icon: ListTodo },
+  { to: '/schedule', label: 'Schedule', icon: Calendar },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -24,7 +26,7 @@ export default function Sidebar() {
               }`
             }
           >
-            <span>{link.icon}</span>
+            <link.icon size={18} />
             <span>{link.label}</span>
           </NavLink>
         ))}
