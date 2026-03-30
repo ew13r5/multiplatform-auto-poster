@@ -57,7 +57,6 @@ def send_daily_report():
         report = "\n".join(report_lines)
         logger.info("Daily report:\n%s", report)
 
-        # TODO: Send via alert_manager when split 05 is implemented
         return report
 
     finally:

@@ -1,12 +1,27 @@
 import csv
 import json
 import io
+import logging
 from typing import Any
 
 from sqlalchemy import select, func
 
 from app.models.page import Page
 from app.models.post import Post, PostStatus, PostType
+from app.tasks.celery_app import celery_app
+from app.database import SyncSessionLocal
+
+logger = logging.getLogger(__name__)
+
+
+@celery_app.task(name="app.tasks.bulk_import.run_bulk_import", bind=True)
+def run_bulk_import(self, file_content: str, file_type: str) -> dict:
+    """Celery task wrapper for bulk import."""
+    logger.info("Starting bulk import task %s", self.request.id)
+    with SyncSessionLocal() as session:
+        result = process_bulk_import(file_content, file_type, session)
+    logger.info("Bulk import complete: %s", result)
+    return result
 
 
 def _detect_post_type(image_key: str, link_url: str) -> PostType:

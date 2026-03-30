@@ -1,9 +1,39 @@
+# Python
 __pycache__/
 *.pyc
-.env
+*.pyo
 .venv/
+venv/
 *.egg-info/
+
+# Node
+node_modules/
 dist/
 build/
-node_modules/
+
+# Environment
+.env
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
 .pytest_cache/
+coverage/
+.nyc_output/
+
+# Docker volumes
+postgres-data/
+redis-data/
+minio-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Planning (not needed in prod repo)
+planning-v2/

@@ -1,4 +1,5 @@
 import logging
+import subprocess
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -14,11 +15,27 @@ from app.exceptions import PostNotEditableError, PageNotFoundError, InvalidFileE
 logger = logging.getLogger(__name__)
 
 
+def _run_migrations():
+    """Run alembic upgrade head at startup."""
+    try:
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            logger.info("Migrations applied successfully")
+        else:
+            logger.warning("Migration output: %s", result.stderr or result.stdout)
+    except Exception as e:
+        logger.error("Failed to run migrations: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    _run_migrations()
     yield
-    # Shutdown
 
 
 app = FastAPI(

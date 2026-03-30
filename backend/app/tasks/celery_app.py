@@ -25,7 +25,13 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-celery_app.autodiscover_tasks(["app.tasks"])
+celery_app.conf.include = [
+    "app.tasks.publish_task",
+    "app.tasks.health_task",
+    "app.tasks.engagement_task",
+    "app.tasks.report_task",
+    "app.tasks.bulk_import",
+]
 
 # Beat schedule
 from celery.schedules import crontab
