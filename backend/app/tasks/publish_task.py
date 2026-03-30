@@ -19,18 +19,20 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(name="app.tasks.publish_task.check_publish_slots")
 def check_publish_slots():
-    """Beat task: check schedule and dispatch publish tasks for matching slots."""
+    """Beat task: check scheduled posts and slot-based schedule."""
     now_utc = datetime.utcnow()
     db = SyncSessionLocal()
     try:
-        matching = get_matching_slots(db, now_utc)
-        for page_id, slot_id in matching:
-            post = get_next_queued_post_sync(db, page_id)
-            if not post:
-                logger.info("No queued posts for page %s", page_id)
-                continue
+        # 1. Check posts with specific scheduled_at time
+        scheduled_posts = db.execute(
+            select(Post).where(
+                Post.status == PostStatus.queued,
+                Post.scheduled_at.isnot(None),
+                Post.scheduled_at <= now_utc,
+            )
+        ).scalars().all()
 
-            # Atomic status transition
+        for post in scheduled_posts:
             result = db.execute(
                 update(Post)
                 .where(Post.id == post.id)
@@ -38,7 +40,27 @@ def check_publish_slots():
                 .values(status=PostStatus.publishing)
             )
             if result.rowcount == 0:
-                continue  # Already picked up
+                continue
+            db.commit()
+            publish_post_task.delay(str(post.id), str(post.page_id))
+            logger.info("Dispatched scheduled post %s (scheduled_at=%s)", post.id, post.scheduled_at)
+
+        # 2. Check slot-based schedule (recurring)
+        matching = get_matching_slots(db, now_utc)
+        for page_id, slot_id in matching:
+            post = get_next_queued_post_sync(db, page_id)
+            if not post:
+                logger.info("No queued posts for page %s", page_id)
+                continue
+
+            result = db.execute(
+                update(Post)
+                .where(Post.id == post.id)
+                .where(Post.status == PostStatus.queued)
+                .values(status=PostStatus.publishing)
+            )
+            if result.rowcount == 0:
+                continue
 
             db.commit()
             mark_slot_dispatched(slot_id, now_utc)
@@ -74,15 +96,38 @@ def publish_post_task(self, post_id: str, page_id: str):
             db.commit()
             return
 
-        # Call publisher (sync wrapper around async)
+        # Call platform-specific publisher (sync wrapper around async)
+        import asyncio
         settings = get_settings()
-        with httpx.Client(
-            base_url=f"https://graph.facebook.com/{settings.GRAPH_API_VERSION}",
-            timeout=httpx.Timeout(30.0, connect=10.0),
-        ) as client:
+        platform = getattr(page, "platform", "facebook")
+
+        if platform == "telegram":
+            from app.services.telegram_publisher import publish_post_telegram
+
+            async def _publish_tg():
+                async with httpx.AsyncClient() as client:
+                    return await publish_post_telegram(post, page, client)
+
+            pub_result = asyncio.run(_publish_tg())
+        elif platform == "twitter":
+            from app.services.twitter_publisher import publish_post_twitter
+
+            async def _publish_tw():
+                async with httpx.AsyncClient() as client:
+                    return await publish_post_twitter(post, page, client)
+
+            pub_result = asyncio.run(_publish_tw())
+        else:
             from app.services.publisher import publish_post as async_publish
-            import asyncio
-            pub_result = asyncio.run(async_publish(post, page, client))
+
+            async def _publish_fb():
+                async with httpx.AsyncClient(
+                    base_url=f"https://graph.facebook.com/{settings.GRAPH_API_VERSION}",
+                    timeout=httpx.Timeout(30.0, connect=10.0),
+                ) as client:
+                    return await async_publish(post, page, client)
+
+            pub_result = asyncio.run(_publish_fb())
 
         if pub_result.success:
             post.status = PostStatus.published

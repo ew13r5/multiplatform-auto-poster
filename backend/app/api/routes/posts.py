@@ -38,6 +38,7 @@ def _post_to_response(post: Post) -> PostResponse:
         post_type=post.post_type.value if post.post_type else "text",
         status=post.status.value if post.status else "draft",
         order_index=post.order_index,
+        scheduled_at=post.scheduled_at,
         image_key=post.image_key,
         image_url=image_url,
         link_url=post.link_url,
@@ -95,6 +96,7 @@ async def create_post(data: PostCreate, db: AsyncSession = Depends(get_async_db)
         link_url=data.link_url,
         post_type=post_type,
         status=PostStatus.draft,
+        scheduled_at=data.scheduled_at,
     )
     db.add(post)
     await db.commit()
@@ -120,6 +122,8 @@ async def update_post(
         post.image_key = data.image_key
     if data.link_url is not None:
         post.link_url = data.link_url
+    if data.scheduled_at is not None:
+        post.scheduled_at = data.scheduled_at
 
     # Handle status transitions
     if data.status is not None:
@@ -139,6 +143,23 @@ async def update_post(
     # Re-detect post_type
     post.post_type = _detect_post_type(post.image_key, post.link_url)
 
+    await db.commit()
+    await db.refresh(post)
+    return _post_to_response(post)
+
+
+@router.post("/{post_id}/retry", response_model=PostResponse)
+async def retry_post(post_id: str, db: AsyncSession = Depends(get_async_db)):
+    """Reset a failed post back to queued for retry."""
+    result = await db.execute(select(Post).where(Post.id == post_id))
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.status != PostStatus.failed:
+        raise HTTPException(status_code=400, detail="Only failed posts can be retried")
+
+    post.status = PostStatus.queued
+    post.error_message = None
     await db.commit()
     await db.refresh(post)
     return _post_to_response(post)
@@ -196,6 +217,6 @@ async def bulk_import(file: UploadFile = File(...)):
     content = await file.read()
     file_type = "csv" if (file.filename and file.filename.endswith(".csv")) or file.content_type == "text/csv" else "json"
 
-    # TODO: dispatch Celery task in section-07
-    # For now return a placeholder task_id
-    return BulkImportResponse(task_id="placeholder-task-id")
+    from app.tasks.bulk_import import run_bulk_import
+    result = run_bulk_import.delay(content.decode("utf-8"), file_type)
+    return BulkImportResponse(task_id=result.id)

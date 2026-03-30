@@ -9,6 +9,7 @@ class PostCreate(BaseModel):
     content_text: str
     image_key: Optional[str] = None
     link_url: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class PostUpdate(BaseModel):
@@ -16,6 +17,7 @@ class PostUpdate(BaseModel):
     image_key: Optional[str] = None
     link_url: Optional[str] = None
     status: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
 
     @field_validator("status")
     @classmethod
@@ -34,6 +36,7 @@ class PostResponse(BaseModel):
     post_type: str
     status: str
     order_index: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
     image_key: Optional[str] = None
     image_url: Optional[str] = None
     link_url: Optional[str] = None

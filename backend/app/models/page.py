@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, String, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDTimestampMixin
@@ -17,6 +17,7 @@ class Page(UUIDTimestampMixin, Base):
 
     fb_page_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    platform: Mapped[str] = mapped_column(String, default="facebook", server_default="facebook")
     avatar_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     category: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     access_token_encrypted: Mapped[Optional[str]] = mapped_column(String, nullable=True)

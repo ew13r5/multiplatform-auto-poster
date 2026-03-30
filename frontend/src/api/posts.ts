@@ -35,3 +35,8 @@ export async function publishNow(id: string) {
   const { data } = await apiClient.post(`/posts/${id}/publish-now`)
   return data
 }
+
+export async function retryPost(id: string) {
+  const { data } = await apiClient.post(`/posts/${id}/retry`)
+  return data
+}

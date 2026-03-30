@@ -8,6 +8,7 @@ export interface Post {
   post_type: PostType
   status: PostStatus
   order_index?: number
+  scheduled_at?: string
   image_key?: string
   image_url?: string
   link_url?: string
@@ -21,6 +22,7 @@ export interface PostCreate {
   content_text: string
   image_key?: string
   link_url?: string
+  scheduled_at?: string
 }
 
 export interface PostUpdate {
@@ -28,4 +30,5 @@ export interface PostUpdate {
   image_key?: string
   link_url?: string
   status?: 'draft' | 'queued'
+  scheduled_at?: string
 }

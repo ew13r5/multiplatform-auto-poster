@@ -11,6 +11,8 @@ from app.models.page import Page
 from app.models.publish_log import PublishLog, PublishResult
 from app.schemas.publish import PublishNowResponse
 from app.services.publisher import publish_post
+from app.services.telegram_publisher import publish_post_telegram
+from app.services.twitter_publisher import publish_post_twitter
 
 router = APIRouter(prefix="/posts", tags=["publish"])
 
@@ -56,19 +58,25 @@ async def publish_now(
         await db.commit()
         raise HTTPException(status_code=404, detail="Page not found")
 
-    # Get or create httpx client
-    graph_client = getattr(request.app.state, "graph_client", None)
-    if not graph_client:
-        from app.config import get_settings
-        settings = get_settings()
-        graph_client = httpx.AsyncClient(
-            base_url=f"https://graph.facebook.com/{settings.GRAPH_API_VERSION}",
-            timeout=httpx.Timeout(30.0, connect=10.0),
-        )
-
-    # Publish
+    # Publish via platform-specific publisher
     try:
-        pub_result = await publish_post(post, page, graph_client)
+        platform = getattr(page, "platform", "facebook")
+        if platform == "telegram":
+            async with httpx.AsyncClient() as client:
+                pub_result = await publish_post_telegram(post, page, client)
+        elif platform == "twitter":
+            async with httpx.AsyncClient() as client:
+                pub_result = await publish_post_twitter(post, page, client)
+        else:
+            graph_client = getattr(request.app.state, "graph_client", None)
+            if not graph_client:
+                from app.config import get_settings
+                settings = get_settings()
+                graph_client = httpx.AsyncClient(
+                    base_url=f"https://graph.facebook.com/{settings.GRAPH_API_VERSION}",
+                    timeout=httpx.Timeout(30.0, connect=10.0),
+                )
+            pub_result = await publish_post(post, page, graph_client)
     except Exception as e:
         post.status = PostStatus.failed
         post.error_message = str(e)

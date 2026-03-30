@@ -48,6 +48,9 @@ class Post(UUIDTimestampMixin, Base):
     link_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     fb_post_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     order_index: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     published_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
