@@ -12,8 +12,8 @@ const links: Array<{ to: string; label: string; icon: LucideIcon }> = [
 
 export default function Sidebar() {
   return (
-    <aside className="w-56 bg-gray-900 text-white min-h-screen p-4">
-      <h2 className="text-lg font-bold mb-6 px-2">Auto-Poster</h2>
+    <aside className="w-56 bg-gray-900 text-white fixed top-0 left-0 h-screen p-4 z-30">
+      <h2 className="text-lg font-bold mb-6 px-2">Auto Poster</h2>
       <nav className="space-y-1">
         {links.map((link) => (
           <NavLink
