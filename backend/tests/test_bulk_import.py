@@ -54,6 +54,54 @@ def test_json_import_creates_posts(db):
     assert result["imported"] == 1
 
 
+def test_xquik_json_payload_import_creates_link_posts(db):
+    page = Page(fb_page_id="bi-xquik", name="Xquik Page")
+    db.add(page)
+    db.commit()
+
+    json_content = """{
+        "page_name": "Xquik Page",
+        "tweets": [
+            {"id": "123", "text": "Launch update", "author": {"username": "xquik"}}
+        ]
+    }"""
+    result = process_bulk_import(json_content, "json", db)
+
+    assert result["total"] == 1
+    assert result["imported"] == 1
+    assert result["errors"] == []
+    post = db.query(Post).filter(Post.page_id == page.id).one()
+    assert post.content_text == "Launch update"
+    assert post.link_url == "https://x.com/xquik/status/123"
+
+
+def test_json_import_rejects_invalid_root(db):
+    result = process_bulk_import('{"items": []}', "json", db)
+
+    assert result["imported"] == 0
+    assert result["errors"][0]["reason"] == "JSON import must be a row array or an Xquik tweets payload"
+
+
+def test_csv_import_rejects_missing_required_headers(db):
+    result = process_bulk_import("content_text\nMissing page", "csv", db)
+
+    assert result["total"] == 0
+    assert result["imported"] == 0
+    assert result["errors"][0]["reason"] == "Missing columns: page_name"
+
+
+def test_csv_import_accepts_utf8_bom(db):
+    page = Page(fb_page_id="bi-bom", name="BOM Page")
+    db.add(page)
+    db.commit()
+
+    result = process_bulk_import("\ufeffpage_name,content_text\nBOM Page,Hello", "csv", db)
+
+    assert result["total"] == 1
+    assert result["imported"] == 1
+    assert result["errors"] == []
+
+
 def test_import_auto_detects_post_type(db):
     page = Page(fb_page_id="bi3", name="Type Page")
     db.add(page)

@@ -37,6 +37,7 @@ async def test_list_pages_with_data(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_verify_token_returns_501(auth_client: AsyncClient):
+async def test_verify_token_returns_not_found(auth_client: AsyncClient):
     response = await auth_client.post("/api/pages/some-id/verify-token")
-    assert response.status_code == 501
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Page not found"}

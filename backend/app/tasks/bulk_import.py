@@ -13,6 +13,8 @@ from app.database import SyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
+REQUIRED_COLUMNS = {"page_name", "content_text"}
+
 
 @celery_app.task(name="app.tasks.bulk_import.run_bulk_import", bind=True)
 def run_bulk_import(self, file_content: str, file_type: str) -> dict:
@@ -32,6 +34,65 @@ def _detect_post_type(image_key: str, link_url: str) -> PostType:
     return PostType.text
 
 
+def _text(value: Any) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _xquik_tweet_url(tweet: dict[str, Any]) -> str:
+    url = _text(tweet.get("url"))
+    if url:
+        return url
+
+    tweet_id = _text(tweet.get("id") or tweet.get("tweet_id"))
+    author = tweet.get("author")
+    username = _text(tweet.get("username"))
+    if isinstance(author, dict):
+        username = _text(author.get("username") or author.get("user_name")) or username
+    if tweet_id and username:
+        return f"https://x.com/{username}/status/{tweet_id}"
+    return ""
+
+
+def _rows_from_xquik_payload(payload: dict[str, Any]) -> list[dict[str, str]]:
+    tweets = payload.get("tweets")
+    if not isinstance(tweets, list):
+        return []
+
+    default_page = _text(
+        payload.get("page_name")
+        or payload.get("pageName")
+        or payload.get("target_page")
+        or payload.get("targetPage")
+    )
+    rows: list[dict[str, str]] = []
+    for tweet in tweets:
+        if not isinstance(tweet, dict):
+            rows.append({"page_name": default_page, "content_text": "", "image_key": "", "link_url": ""})
+            continue
+        rows.append(
+            {
+                "page_name": _text(tweet.get("page_name") or tweet.get("pageName")) or default_page,
+                "content_text": _text(tweet.get("text") or tweet.get("full_text")),
+                "image_key": "",
+                "link_url": _xquik_tweet_url(tweet),
+            }
+        )
+    return rows
+
+
+def _load_json_rows(file_content: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    try:
+        payload = json.loads(file_content)
+    except json.JSONDecodeError as exc:
+        return [], [{"row": 0, "reason": f"Invalid JSON: {exc.msg}"}]
+
+    if isinstance(payload, list):
+        return payload, []
+    if isinstance(payload, dict) and isinstance(payload.get("tweets"), list):
+        return _rows_from_xquik_payload(payload), []
+    return [], [{"row": 0, "reason": "JSON import must be a row array or an Xquik tweets payload"}]
+
+
 def process_bulk_import(file_content: str, file_type: str, db_session) -> dict:
     """Process bulk import synchronously. Called from Celery task or directly.
 
@@ -41,9 +102,18 @@ def process_bulk_import(file_content: str, file_type: str, db_session) -> dict:
     imported = 0
 
     if file_type == "csv":
-        rows = list(csv.DictReader(io.StringIO(file_content)))
+        reader = csv.DictReader(io.StringIO(file_content))
+        if reader.fieldnames:
+            reader.fieldnames = [header.lstrip("\ufeff").strip() for header in reader.fieldnames]
+        headers = set(reader.fieldnames or [])
+        missing = sorted(REQUIRED_COLUMNS - headers)
+        if missing:
+            return {"total": 0, "imported": 0, "errors": [{"row": 0, "reason": f"Missing columns: {', '.join(missing)}"}]}
+        rows = list(reader)
     elif file_type == "json":
-        rows = json.loads(file_content)
+        rows, load_errors = _load_json_rows(file_content)
+        if load_errors:
+            return {"total": 0, "imported": 0, "errors": load_errors}
     else:
         return {"total": 0, "imported": 0, "errors": [{"row": 0, "reason": f"Unknown file type: {file_type}"}]}
 
@@ -55,10 +125,14 @@ def process_bulk_import(file_content: str, file_type: str, db_session) -> dict:
     order_counters: dict[str, int] = {}
 
     for i, row in enumerate(rows):
-        page_name = row.get("page_name", "").strip()
-        content_text = row.get("content_text", "").strip()
-        image_key = row.get("image_key", "").strip()
-        link_url = row.get("link_url", "").strip()
+        if not isinstance(row, dict):
+            errors.append({"row": i + 1, "reason": "Row must be an object"})
+            continue
+
+        page_name = _text(row.get("page_name"))
+        content_text = _text(row.get("content_text"))
+        image_key = _text(row.get("image_key"))
+        link_url = _text(row.get("link_url"))
 
         if not page_name:
             errors.append({"row": i + 1, "reason": "Missing page_name"})
