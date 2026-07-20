@@ -218,5 +218,10 @@ async def bulk_import(file: UploadFile = File(...)):
     file_type = "csv" if (file.filename and file.filename.endswith(".csv")) or file.content_type == "text/csv" else "json"
 
     from app.tasks.bulk_import import run_bulk_import
-    result = run_bulk_import.delay(content.decode("utf-8"), file_type)
+    try:
+        decoded_content = content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Import files must use UTF-8 encoding") from exc
+
+    result = run_bulk_import.delay(decoded_content, file_type)
     return BulkImportResponse(task_id=result.id)

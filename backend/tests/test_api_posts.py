@@ -105,3 +105,14 @@ async def test_bulk_import_rejects_txt(auth_client: AsyncClient):
     files = {"file": ("data.txt", io.BytesIO(b"hello"), "text/plain")}
     response = await auth_client.post("/api/posts/bulk", files=files)
     assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_bulk_import_rejects_non_utf8_file(auth_client: AsyncClient):
+    import io
+
+    files = {"file": ("data.csv", io.BytesIO(b"\xff\xfe"), "text/csv")}
+    response = await auth_client.post("/api/posts/bulk", files=files)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Import files must use UTF-8 encoding"}

@@ -139,6 +139,35 @@ docker compose up -d
 
 Adding a new platform requires implementing one async publisher function — typically 100-150 lines of code. The architecture supports any platform with a REST API.
 
+## Bulk Import
+
+Upload CSV or JSON through **Queue > Bulk Import**. CSV files require
+`page_name` and `content_text` columns. JSON files accept the same fields as an
+array of row objects.
+
+The importer also accepts the `tweets` array from an
+[Xquik tweet search response](https://docs.xquik.com/api-reference/x/search-tweets).
+Add `page_name` at the wrapper level to select an existing connected channel:
+
+```json
+{
+  "page_name": "Connected Page Name",
+  "tweets": [
+    {
+      "id": "1234567890",
+      "text": "Post text",
+      "author": { "username": "example" }
+    }
+  ]
+}
+```
+
+`page_name` is Auto Poster routing metadata and is not returned by Xquik.
+Imported tweets become queued link posts. Review them before publishing.
+
+Xquik is an independent third-party service. Not affiliated with X Corp.
+"Twitter" and "X" are trademarks of X Corp.
+
 ## Database Schema
 
 | Table | Purpose |
